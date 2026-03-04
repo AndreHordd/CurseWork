@@ -1,0 +1,46 @@
+services:
+  db:
+    image: postgres:16
+    container_name: bi_db
+    environment:
+      POSTGRES_DB: bi
+      POSTGRES_USER: bi
+      POSTGRES_PASSWORD: bi
+    ports:
+      - "5432:5432"
+    volumes:
+      - bi_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bi -d bi"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  backend:
+    build:
+      context: ./backend
+    container_name: bi_backend
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DJANGO_DEBUG: "1"
+      DJANGO_SECRET_KEY: "dev-secret-key-change-me"
+      DJANGO_ALLOWED_HOSTS: "localhost,127.0.0.1"
+      DB_HOST: db
+      DB_PORT: "5432"
+      DB_NAME: bi
+      DB_USER: bi
+      DB_PASSWORD: bi
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+    command: >
+      sh -c "
+      python manage.py migrate &&
+      python manage.py runserver 0.0.0.0:8000
+      "
+
+volumes:
+  bi_pgdata:
