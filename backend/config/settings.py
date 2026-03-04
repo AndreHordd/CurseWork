@@ -39,8 +39,11 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "rest_framework",
-    "app"
+    "app",
+    "core",
 ]
+
+DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
@@ -79,8 +82,8 @@ DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
         "NAME": os.getenv("DB_NAME", "bi"),
-        "USER": os.getenv("DB_USER", "bi"),
-        "PASSWORD": os.getenv("DB_PASSWORD", "bi"),
+        "USER": os.getenv("DB_USER", "postgres"),
+        "PASSWORD": os.getenv("DB_PASSWORD", "password"),
         "HOST": os.getenv("DB_HOST", "localhost"),
         "PORT": os.getenv("DB_PORT", "5432"),
     }

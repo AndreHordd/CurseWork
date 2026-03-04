@@ -4,8 +4,8 @@ services:
     container_name: bi_db
     environment:
       POSTGRES_DB: bi
-      POSTGRES_USER: bi
-      POSTGRES_PASSWORD: bi
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
     ports:
       - "5432:5432"
     volumes:
@@ -30,8 +30,8 @@ services:
       DB_HOST: db
       DB_PORT: "5432"
       DB_NAME: bi
-      DB_USER: bi
-      DB_PASSWORD: bi
+      DB_USER: postgres
+      DB_PASSWORD: password
     ports:
       - "8000:8000"
     volumes:
