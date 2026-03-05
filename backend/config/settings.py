@@ -129,3 +129,35 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = "static/"
+
+MEDIA_ROOT = BASE_DIR / "media"
+MEDIA_URL = "/media/"
+
+# ---------- Django REST Framework ----------
+
+REST_FRAMEWORK = {
+    "DEFAULT_RENDERER_CLASSES": [
+        "rest_framework.renderers.JSONRenderer",
+    ],
+    "DEFAULT_PARSER_CLASSES": [
+        "rest_framework.parsers.JSONParser",
+        "rest_framework.parsers.MultiPartParser",
+        "rest_framework.parsers.FormParser",
+    ],
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework.authentication.SessionAuthentication",
+    ],
+    "DEFAULT_PERMISSION_CLASSES": [
+        "rest_framework.permissions.IsAuthenticated",
+    ],
+}
+
+# ---------- Import limits ----------
+
+IMPORT_MAX_FILE_SIZE_MB = int(os.getenv("IMPORT_MAX_FILE_SIZE_MB", "50"))
+IMPORT_MAX_ROWS = int(os.getenv("IMPORT_MAX_ROWS", "100000"))
+IMPORT_MAX_COLUMNS = int(os.getenv("IMPORT_MAX_COLUMNS", "200"))
+IMPORT_PREVIEW_ROWS = int(os.getenv("IMPORT_PREVIEW_ROWS", "20"))
+IMPORT_ALLOWED_FORMATS = ["csv", "xlsx", "json"]
+IMPORT_DEFAULT_CSV_ENCODING = os.getenv("IMPORT_DEFAULT_CSV_ENCODING", "utf-8")
+IMPORT_DEFAULT_CSV_DELIMITER = os.getenv("IMPORT_DEFAULT_CSV_DELIMITER", ",")

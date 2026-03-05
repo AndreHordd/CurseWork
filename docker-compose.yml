@@ -36,6 +36,7 @@ services:
       - "8000:8000"
     volumes:
       - ./backend:/app
+      - ./backend/media:/app/media
     command: >
       sh -c "
       python manage.py migrate &&
