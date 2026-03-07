@@ -81,6 +81,9 @@ def _profile_column(name: str, series: pd.Series) -> ColumnProfile:
 def _infer_type(name: str, non_null: pd.Series) -> tuple[str, list[str]]:
     warnings: list[str] = []
 
+    if pd.api.types.is_datetime64_any_dtype(non_null):
+        return "date", warnings
+
     if _is_bool(non_null):
         return "bool", warnings
 

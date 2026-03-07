@@ -169,3 +169,114 @@ class SnapshotPreviewSerializer(serializers.ModelSerializer):
             "columns",
             "validations",
         ]
+
+
+# ────────────────────────── Stage 6: Clean / Transform ──────────────
+
+CLEAN_OPERATIONS = [
+    "fill_missing", "drop_duplicates", "cast_type", "trim_spaces",
+    "normalize_decimal_separators", "convert_empty_to_null",
+    "detect_outliers", "normalize_case", "trim_and_collapse",
+    "replace_values",
+]
+
+TRANSFORM_OPERATIONS = [
+    "filter_rows", "add_arithmetic_column", "add_ratio_column",
+    "add_conditional_column", "add_concat_column", "aggregate",
+    "rename_columns", "select_columns", "sort_rows", "reorder_columns",
+]
+
+
+class OperationStepSerializer(serializers.Serializer):
+    operation = serializers.CharField()
+    params = serializers.DictField(default=dict)
+
+
+class SnapshotCleanSerializer(serializers.Serializer):
+    operations = OperationStepSerializer(many=True, min_length=1)
+    preview_only = serializers.BooleanField(default=False)
+
+    def validate_operations(self, value):
+        for step in value:
+            if step["operation"] not in CLEAN_OPERATIONS:
+                raise serializers.ValidationError(
+                    f"Unknown clean operation '{step['operation']}'. "
+                    f"Allowed: {CLEAN_OPERATIONS}"
+                )
+        return value
+
+
+class SnapshotTransformSerializer(serializers.Serializer):
+    operations = OperationStepSerializer(many=True, min_length=1)
+    preview_only = serializers.BooleanField(default=False)
+
+    def validate_operations(self, value):
+        for step in value:
+            if step["operation"] not in TRANSFORM_OPERATIONS:
+                raise serializers.ValidationError(
+                    f"Unknown transform operation '{step['operation']}'. "
+                    f"Allowed: {TRANSFORM_OPERATIONS}"
+                )
+        return value
+
+
+class PipelineResultSerializer(serializers.Serializer):
+    snapshot_id = serializers.CharField(allow_null=True)
+    stage = serializers.CharField()
+    change_report = serializers.DictField()
+    preview_rows = serializers.ListField()
+    row_count = serializers.IntegerField()
+    column_count = serializers.IntegerField()
+    warnings = serializers.ListField(child=serializers.CharField())
+    duration_ms = serializers.IntegerField()
+
+
+class SnapshotHistorySerializer(serializers.ModelSerializer):
+    step_config = serializers.JSONField()
+    parent_snapshot_id = serializers.UUIDField(allow_null=True)
+
+    class Meta:
+        model = Snapshot
+        fields = [
+            "id",
+            "stage",
+            "is_active",
+            "row_count",
+            "column_count",
+            "step_config",
+            "parent_snapshot_id",
+            "created_at",
+        ]
+
+
+class QualityColumnSerializer(serializers.Serializer):
+    name = serializers.CharField()
+    inferred_type = serializers.CharField()
+    missing_count = serializers.IntegerField()
+    distinct_count = serializers.IntegerField()
+    nullable = serializers.BooleanField()
+
+
+class QualitySummarySerializer(serializers.Serializer):
+    snapshot_id = serializers.CharField()
+    stage = serializers.CharField()
+    row_count = serializers.IntegerField()
+    column_count = serializers.IntegerField()
+    total_missing = serializers.IntegerField()
+    duplicate_rows = serializers.IntegerField()
+    columns = QualityColumnSerializer(many=True)
+    validations = ValidationSerializer(many=True)
+
+
+class SnapshotDiffSerializer(serializers.Serializer):
+    snapshot_a = serializers.CharField()
+    snapshot_b = serializers.CharField()
+    rows_a = serializers.IntegerField()
+    rows_b = serializers.IntegerField()
+    columns_a = serializers.ListField(child=serializers.CharField())
+    columns_b = serializers.ListField(child=serializers.CharField())
+    columns_added = serializers.ListField(child=serializers.CharField())
+    columns_removed = serializers.ListField(child=serializers.CharField())
+    missing_a = serializers.DictField()
+    missing_b = serializers.DictField()
+    type_changes = serializers.ListField()

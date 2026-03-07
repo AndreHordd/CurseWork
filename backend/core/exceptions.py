@@ -34,3 +34,48 @@ class DataValidationError(DataImportError):
 
     def __init__(self, message, details=None):
         super().__init__(message, code="data_validation_error", details=details)
+
+
+# ── Stage 6: cleaning / transformation ──────────────────────────────
+
+
+class DataCleanError(DataImportError):
+    """Base exception for cleaning and transformation operations."""
+
+    def __init__(self, message, code="clean_error", details=None):
+        super().__init__(message, code=code, details=details)
+
+
+class OperationConfigError(DataCleanError):
+    """Invalid operation configuration supplied by the client."""
+
+    def __init__(self, message, details=None):
+        super().__init__(message, code="operation_config_error", details=details)
+
+
+class ColumnNotFoundError(DataCleanError):
+    """Referenced column does not exist in the DataFrame."""
+
+    def __init__(self, message, details=None):
+        super().__init__(message, code="column_not_found", details=details)
+
+
+class TypeConversionError(DataCleanError):
+    """Type cast could not be completed."""
+
+    def __init__(self, message, details=None):
+        super().__init__(message, code="type_conversion_error", details=details)
+
+
+class EmptyResultError(DataCleanError):
+    """Operation produced an empty DataFrame (0 rows)."""
+
+    def __init__(self, message, details=None):
+        super().__init__(message, code="empty_result_error", details=details)
+
+
+class AggregationConfigError(DataCleanError):
+    """Invalid aggregation configuration."""
+
+    def __init__(self, message, details=None):
+        super().__init__(message, code="aggregation_config_error", details=details)
