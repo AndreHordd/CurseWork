@@ -5,7 +5,7 @@ import json
 from django.conf import settings
 from rest_framework import serializers
 
-from core.models import ColumnMetadata, Dataset, Snapshot, Validation
+from core.models import Chart, ColumnMetadata, Dashboard, Dataset, Snapshot, Validation
 
 
 # ────────────────────────── Import (input) ──────────────────────────
@@ -280,3 +280,191 @@ class SnapshotDiffSerializer(serializers.Serializer):
     missing_a = serializers.DictField()
     missing_b = serializers.DictField()
     type_changes = serializers.ListField()
+
+
+# ────────────────────────── Stage 7: Analytics / Dashboards ──────────
+
+STAGE7_CHART_TYPES = ("line", "bar", "table")
+STAGE7_AGGREGATIONS = ("count", "sum", "avg", "min", "max", "median")
+NUMERIC_AGGREGATIONS = ("sum", "avg", "min", "max", "median")
+
+
+class SnapshotSummarySerializer(serializers.Serializer):
+    snapshot_id = serializers.CharField()
+    row_count = serializers.IntegerField()
+    column_count = serializers.IntegerField()
+    missing_total = serializers.IntegerField()
+    missing_percentage = serializers.FloatField()
+    duplicate_rows = serializers.IntegerField()
+    duplicate_percentage = serializers.FloatField()
+    numeric_columns = serializers.ListField()
+    categorical_columns = serializers.ListField()
+    datetime_columns = serializers.ListField()
+    quality_summary = serializers.DictField()
+
+
+# ── Dashboard ────────────────────────────────────────────────────────
+
+
+class ChartBriefSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Chart
+        fields = [
+            "id", "chart_type", "title", "x", "y",
+            "aggregation", "group_by", "filters", "options", "position",
+        ]
+
+
+class DashboardCreateSerializer(serializers.Serializer):
+    snapshot_id = serializers.UUIDField()
+    title = serializers.CharField(max_length=200)
+    description = serializers.CharField(required=False, allow_blank=True, default="")
+    layout = serializers.JSONField(required=False, default=dict)
+    global_filters = serializers.JSONField(required=False, default=None)
+
+    def validate_global_filters(self, value):
+        if value is None:
+            return value
+        if isinstance(value, list):
+            return {"conditions": value, "logic": "and"}
+        if isinstance(value, dict):
+            if "conditions" not in value:
+                raise serializers.ValidationError(
+                    "global_filters must contain 'conditions' key"
+                )
+            return value
+        raise serializers.ValidationError("global_filters must be a list or object")
+
+
+class DashboardUpdateSerializer(serializers.Serializer):
+    title = serializers.CharField(max_length=200, required=False)
+    description = serializers.CharField(required=False, allow_blank=True)
+    layout = serializers.JSONField(required=False)
+    global_filters = serializers.JSONField(required=False, allow_null=True)
+
+    def validate_global_filters(self, value):
+        if value is None:
+            return value
+        if isinstance(value, list):
+            return {"conditions": value, "logic": "and"}
+        if isinstance(value, dict):
+            if "conditions" not in value:
+                raise serializers.ValidationError(
+                    "global_filters must contain 'conditions' key"
+                )
+            return value
+        raise serializers.ValidationError("global_filters must be a list or object")
+
+
+class DashboardDetailSerializer(serializers.ModelSerializer):
+    charts = ChartBriefSerializer(many=True, read_only=True)
+    snapshot_id = serializers.UUIDField(source="snapshot.pk", read_only=True)
+
+    class Meta:
+        model = Dashboard
+        fields = [
+            "id", "title", "description", "snapshot_id",
+            "layout", "global_filters", "charts", "created_at",
+        ]
+
+
+class DashboardListSerializer(serializers.ModelSerializer):
+    snapshot_id = serializers.UUIDField(source="snapshot.pk", read_only=True)
+    chart_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Dashboard
+        fields = [
+            "id", "title", "description", "snapshot_id",
+            "chart_count", "created_at",
+        ]
+
+    def get_chart_count(self, obj):
+        return obj.charts.count()
+
+
+# ── Chart ────────────────────────────────────────────────────────────
+
+
+class ChartCreateSerializer(serializers.Serializer):
+    dashboard_id = serializers.UUIDField()
+    chart_type = serializers.ChoiceField(choices=STAGE7_CHART_TYPES)
+    title = serializers.CharField(max_length=200, required=False, allow_blank=True, default="")
+    x = serializers.CharField(max_length=255, required=False, allow_blank=True, allow_null=True, default=None)
+    y = serializers.ListField(child=serializers.CharField(), required=False, default=list)
+    aggregation = serializers.ChoiceField(choices=STAGE7_AGGREGATIONS, required=False, allow_null=True, default=None)
+    group_by = serializers.ListField(child=serializers.CharField(), required=False, default=list)
+    filters = serializers.JSONField(required=False, default=None)
+    options = serializers.JSONField(required=False, default=dict)
+    position = serializers.JSONField(required=False, default=dict)
+
+    def validate(self, attrs):
+        chart_type = attrs["chart_type"]
+        aggregation = attrs.get("aggregation")
+        y_cols = attrs.get("y", [])
+
+        if chart_type in ("line", "bar"):
+            if not aggregation:
+                raise serializers.ValidationError(
+                    {"aggregation": "Aggregation is required for line/bar charts."}
+                )
+            if not y_cols:
+                raise serializers.ValidationError(
+                    {"y": "At least one Y column is required for line/bar charts."}
+                )
+            if not attrs.get("x") and not attrs.get("group_by"):
+                raise serializers.ValidationError(
+                    {"x": "Either x or group_by must be specified for line/bar charts."}
+                )
+
+        return attrs
+
+    def validate_filters(self, value):
+        if value is None:
+            return value
+        if isinstance(value, list):
+            return {"conditions": value, "logic": "and"}
+        if isinstance(value, dict):
+            return value
+        raise serializers.ValidationError("filters must be a list or object")
+
+
+class ChartUpdateSerializer(serializers.Serializer):
+    chart_type = serializers.ChoiceField(choices=STAGE7_CHART_TYPES, required=False)
+    title = serializers.CharField(max_length=200, required=False, allow_blank=True)
+    x = serializers.CharField(max_length=255, required=False, allow_blank=True, allow_null=True)
+    y = serializers.ListField(child=serializers.CharField(), required=False)
+    aggregation = serializers.ChoiceField(choices=STAGE7_AGGREGATIONS, required=False, allow_null=True)
+    group_by = serializers.ListField(child=serializers.CharField(), required=False)
+    filters = serializers.JSONField(required=False, allow_null=True)
+    options = serializers.JSONField(required=False)
+    position = serializers.JSONField(required=False)
+
+    def validate_filters(self, value):
+        if value is None:
+            return value
+        if isinstance(value, list):
+            return {"conditions": value, "logic": "and"}
+        if isinstance(value, dict):
+            return value
+        raise serializers.ValidationError("filters must be a list or object")
+
+
+class ChartDetailSerializer(serializers.ModelSerializer):
+    dashboard_id = serializers.UUIDField(source="dashboard.pk", read_only=True)
+
+    class Meta:
+        model = Chart
+        fields = [
+            "id", "dashboard_id", "chart_type", "title", "x", "y",
+            "aggregation", "group_by", "filters", "options", "position",
+        ]
+
+
+class ChartDataSerializer(serializers.Serializer):
+    chart_type = serializers.CharField()
+    labels = serializers.ListField(required=False)
+    datasets = serializers.ListField(required=False)
+    columns = serializers.ListField(required=False)
+    rows = serializers.ListField(required=False)
+    meta = serializers.DictField()

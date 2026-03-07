@@ -192,6 +192,9 @@ class Chart(models.Model):
         ("sum", "Sum"),
         ("avg", "Average"),
         ("count", "Count"),
+        ("min", "Min"),
+        ("max", "Max"),
+        ("median", "Median"),
     ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -203,9 +206,9 @@ class Chart(models.Model):
     chart_type = models.CharField(max_length=20, choices=CHART_TYPE_CHOICES)
     title = models.CharField(max_length=200, blank=True, null=True)
     x = models.CharField(max_length=255, blank=True, null=True)
-    y = models.CharField(max_length=255, blank=True, null=True)
+    y = models.JSONField(blank=True, null=True)
     aggregation = models.CharField(max_length=30, choices=AGGREGATION_CHOICES, blank=True, null=True)
-    group_by = models.CharField(max_length=255, blank=True, null=True)
+    group_by = models.JSONField(blank=True, null=True)
     filters = models.JSONField(blank=True, null=True)
     options = models.JSONField(blank=True, null=True)
     position = models.JSONField(blank=True, null=True)

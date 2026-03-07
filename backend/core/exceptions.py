@@ -79,3 +79,30 @@ class AggregationConfigError(DataCleanError):
 
     def __init__(self, message, details=None):
         super().__init__(message, code="aggregation_config_error", details=details)
+
+
+# ── Stage 7: analytics / dashboards ─────────────────────────────────
+
+
+class AnalyticsError(Exception):
+    """Base exception for analytics and dashboard operations."""
+
+    def __init__(self, message, code="analytics_error", details=None):
+        super().__init__(message)
+        self.message = message
+        self.code = code
+        self.details = details or {}
+
+
+class ChartConfigError(AnalyticsError):
+    """Invalid chart configuration (columns, aggregation, filters)."""
+
+    def __init__(self, message, details=None):
+        super().__init__(message, code="chart_config_error", details=details)
+
+
+class SnapshotLoadError(AnalyticsError):
+    """Cannot load DataFrame from snapshot."""
+
+    def __init__(self, message, details=None):
+        super().__init__(message, code="snapshot_load_error", details=details)

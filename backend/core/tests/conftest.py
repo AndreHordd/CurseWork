@@ -114,3 +114,119 @@ def csv_with_duplicate_columns() -> io.BytesIO:
     buf = io.BytesIO(data)
     buf.name = "dupcols.csv"
     return buf
+
+
+# ──────────────── Stage 7: analytics fixtures ────────────────
+
+
+ANALYTICS_DATA = [
+    {"region": "UA", "product": "A", "revenue": 100, "cost": 40, "date": "2025-01-01"},
+    {"region": "UA", "product": "B", "revenue": 200, "cost": 80, "date": "2025-01-02"},
+    {"region": "PL", "product": "A", "revenue": 150, "cost": 60, "date": "2025-01-03"},
+    {"region": "PL", "product": "B", "revenue": 300, "cost": 120, "date": "2025-01-04"},
+    {"region": "UA", "product": "A", "revenue": 120, "cost": 50, "date": "2025-02-01"},
+    {"region": "DE", "product": "C", "revenue": 400, "cost": 200, "date": "2025-02-02"},
+]
+
+
+def _create_snapshot_with_data(user, data=None):
+    """Helper: create Dataset + Snapshot + ColumnMetadata from raw dicts."""
+    from core.models import ColumnMetadata, Dataset, Snapshot
+    from core.services.profiler import profile_dataframe
+
+    data = data or ANALYTICS_DATA
+    df = pd.DataFrame(data)
+    profile = profile_dataframe(df)
+
+    dataset = Dataset.objects.create(
+        owner=user,
+        name=f"analytics_ds_{Dataset.objects.count()}",
+        source_type="file",
+        file_format="csv",
+    )
+    snapshot = Snapshot.objects.create(
+        dataset=dataset,
+        stage="transformed",
+        is_active=True,
+        is_ready_for_analysis=True,
+        storage_type="jsonb",
+        data_json=json.loads(df.to_json(orient="records")),
+        preview_rows=json.loads(df.head(5).to_json(orient="records", date_format="iso")),
+        row_count=len(df),
+        column_count=len(df.columns),
+    )
+    for col_prof in profile.columns:
+        ColumnMetadata.objects.create(
+            snapshot=snapshot,
+            name=col_prof.name,
+            inferred_type=col_prof.inferred_type,
+            nullable=col_prof.nullable,
+            distinct_count=col_prof.distinct_count,
+            missing_count=col_prof.missing_count,
+            stats=col_prof.stats,
+        )
+    return dataset, snapshot
+
+
+@pytest.fixture()
+def snapshot_with_data(user):
+    """Dataset + Snapshot with analytics data and ColumnMetadata."""
+    _ds, snap = _create_snapshot_with_data(user)
+    return snap
+
+
+@pytest.fixture()
+def dashboard(user, snapshot_with_data):
+    """Dashboard linked to snapshot_with_data."""
+    from core.models import Dashboard
+    return Dashboard.objects.create(
+        owner=user,
+        snapshot=snapshot_with_data,
+        title="Test Dashboard",
+        description="For testing",
+    )
+
+
+@pytest.fixture()
+def bar_chart(dashboard):
+    """Bar chart: revenue by region."""
+    from core.models import Chart
+    return Chart.objects.create(
+        dashboard=dashboard,
+        chart_type="bar",
+        title="Revenue by Region",
+        x="region",
+        y=["revenue"],
+        aggregation="sum",
+        group_by=[],
+    )
+
+
+@pytest.fixture()
+def line_chart(dashboard):
+    """Line chart: revenue by date."""
+    from core.models import Chart
+    return Chart.objects.create(
+        dashboard=dashboard,
+        chart_type="line",
+        title="Revenue over Time",
+        x="date",
+        y=["revenue"],
+        aggregation="sum",
+        group_by=[],
+    )
+
+
+@pytest.fixture()
+def table_chart(dashboard):
+    """Table chart: raw rows."""
+    from core.models import Chart
+    return Chart.objects.create(
+        dashboard=dashboard,
+        chart_type="table",
+        title="Raw Data",
+        x=None,
+        y=["region", "product", "revenue", "cost"],
+        aggregation=None,
+        group_by=[],
+    )

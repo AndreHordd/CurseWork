@@ -1,6 +1,11 @@
 from django.urls import path
 
 from core.views import (
+    ChartDataView,
+    ChartDetailView,
+    ChartListCreateView,
+    DashboardDetailView,
+    DashboardListCreateView,
     DatasetDetailView,
     DatasetImportView,
     DatasetListView,
@@ -11,6 +16,7 @@ from core.views import (
     SnapshotPreviewView,
     SnapshotQualityView,
     SnapshotSetActiveView,
+    SnapshotSummaryView,
     SnapshotTransformView,
 )
 
@@ -29,4 +35,12 @@ urlpatterns = [
     path("snapshots/<uuid:pk>/preview-clean/", SnapshotPreviewCleanView.as_view(), name="snapshot-preview-clean"),
     path("snapshots/<uuid:pk>/set-active/", SnapshotSetActiveView.as_view(), name="snapshot-set-active"),
     path("snapshots/<uuid:pk>/diff/<uuid:other_pk>/", SnapshotDiffView.as_view(), name="snapshot-diff"),
+
+    # Stage 7 — analytics & dashboards
+    path("snapshots/<uuid:pk>/summary/", SnapshotSummaryView.as_view(), name="snapshot-summary"),
+    path("dashboards/", DashboardListCreateView.as_view(), name="dashboard-list-create"),
+    path("dashboards/<uuid:pk>/", DashboardDetailView.as_view(), name="dashboard-detail"),
+    path("charts/", ChartListCreateView.as_view(), name="chart-list-create"),
+    path("charts/<uuid:pk>/", ChartDetailView.as_view(), name="chart-detail"),
+    path("charts/<uuid:pk>/data/", ChartDataView.as_view(), name="chart-data"),
 ]
